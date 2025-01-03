@@ -78,6 +78,20 @@ class CocoMaskAndPoints:
             coords = coords.unsqueeze(0).float()
 
             labels = get_labels_from_coords(mask.unsqueeze(0), coords, xy_coord=self.to_xy)
-            samples.append((mask, coords, labels))
+            sample = {
+                'masks': mask,
+                'point_coords': coords,
+                'point_labels': labels
+            }
+            samples.append(sample)
 
         return samples
+
+
+def batch_in_batch_out_fn(batch, device='cuda'):
+    return batch
+
+
+def flatten_collate_fn(batch):
+    flattened_batch = [d for sublist in batch for d in sublist]
+    return flattened_batch
