@@ -18,7 +18,7 @@ class CocoMaskAndPoints:
                  image_size: int = 256, nb_samples: int = 5,
                  nb_positives: Union[int, Tuple[int, int]] = (1, 5),
                  nb_negatives: Union[int, Tuple[int, int]] = (1, 5),
-                 to_xy: bool = True) -> None:
+                 to_xy: bool = True, return_side_class: bool = True) -> None:
         assert 0 <= min_area_ratio <= max_area_ratio <= 1, "Invalid ratios"
         self.coco = COCO(coco_json_file)
 
@@ -36,6 +36,7 @@ class CocoMaskAndPoints:
         self.nb_positives = nb_positives
         self.nb_negatives = nb_negatives
         self.to_xy = to_xy
+        self.return_side_class = return_side_class
 
     def __len__(self):
         return len(self.ann_ids)
@@ -83,6 +84,15 @@ class CocoMaskAndPoints:
                 'point_coords': coords,
                 'point_labels': labels
             }
+            if self.return_side_class:
+                img_mid = self.image_size // 2
+                sums = mask.sum(dim=1)
+                dim_0_1st_half_more = sums[:img_mid].sum() > sums[img_mid:].sum()
+                sums = mask.sum(dim=0)
+                dim_1_1st_half_more = sums[:img_mid].sum() > sums[img_mid:].sum()
+                side_class = torch.tensor([dim_0_1st_half_more, dim_1_1st_half_more]).float()
+                sample['side_class'] = side_class
+
             samples.append(sample)
 
         return samples
