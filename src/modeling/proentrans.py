@@ -9,7 +9,7 @@ class ProEnTrans(Module):
         self.layer = TransformerEncoderLayer(d_model=d_model, nhead=nhead, batch_first=True)
         self.encoder = TransformerEncoder(self.layer, num_layers=num_layers)
         self.softmax = Softmax(dim=1)
-        self.sam = sam
+        self.prompt_encoder = sam.prompt_encoder
 
     def forward(self, samples):
         nb_points = [sample["point_coords"].shape[1] for sample in samples]
@@ -18,7 +18,7 @@ class ProEnTrans(Module):
         padding_masks = []
         for sample in samples:
             points = sample["point_coords"], sample["point_labels"]
-            sparse_embeddings, dense_embeddings = self.sam.prompt_encoder(points=points, boxes=None, masks=None)
+            sparse_embeddings, dense_embeddings = self.prompt_encoder(points=points, boxes=None, masks=None)
             len_sparse = sparse_embeddings.shape[1]
             sparse_embeddings = F.pad(sparse_embeddings,
                                       (0, 0, 0, max_nb_points + 2 - sparse_embeddings.shape[1]),
