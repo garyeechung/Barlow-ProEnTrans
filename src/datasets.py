@@ -57,7 +57,7 @@ class CocoMaskAndPoints:
         samples = []
 
         for _ in range(self.nb_samples):
-            # torch.manual_seed(torch.randint(0, 100000, (1,)).item())
+            torch.manual_seed(torch.randint(0, 100000, (1,)).item())
 
             if isinstance(self.nb_positives, tuple):
                 nb_positives = np.random.randint(self.nb_positives[0], self.nb_positives[1] + 1)
