@@ -48,7 +48,7 @@ def train_classifier(sam_checkpoint: str = SAM_CHECKPOINT,
                                      # nb_negatives=10,
                                      min_area_ratio=0.1,
                                      max_area_ratio=0.7,
-                                     nb_samples=8)
+                                     nb_copies=8)
     coco_loader_train = DataLoader(coco_dataset, batch_size=batch_size,
                                    shuffle=True,
                                    collate_fn=flatten_collate_fn)

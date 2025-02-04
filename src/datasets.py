@@ -15,7 +15,7 @@ class CocoMaskAndPoints:
     def __init__(self, coco_json_file: str = COCO_JSON_FILE,
                  min_area_ratio: float = 0.1,
                  max_area_ratio: float = 0.7,
-                 image_size: int = 256, nb_samples: int = 5,
+                 image_size: int = 256, nb_copies: int = 5,
                  nb_positives: Union[int, Tuple[int, int]] = (1, 5),
                  nb_negatives: Union[int, Tuple[int, int]] = (1, 5),
                  to_xy: bool = True, return_side_class: bool = True) -> None:
@@ -32,7 +32,7 @@ class CocoMaskAndPoints:
                 self.ann_ids.append(ann_id)
 
         self.image_size = image_size
-        self.nb_samples = nb_samples
+        self.nb_copies = nb_copies
         self.nb_positives = nb_positives
         self.nb_negatives = nb_negatives
         self.to_xy = to_xy
@@ -56,7 +56,7 @@ class CocoMaskAndPoints:
 
         samples = []
 
-        for _ in range(self.nb_samples):
+        for _ in range(self.nb_copies):
             torch.manual_seed(torch.randint(0, 100000, (1,)).item())
 
             if isinstance(self.nb_positives, tuple):
