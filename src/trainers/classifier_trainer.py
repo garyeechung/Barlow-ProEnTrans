@@ -1,4 +1,3 @@
-# import json
 import logging
 from time import localtime, strftime
 
@@ -24,13 +23,14 @@ def train_classifier(sam_checkpoint: str = SAM_CHECKPOINT,
                      coco_file: str = COCO_FILE,
                      random_seed: int = 42, epochs: int = 1000,
                      learning_rate: float = 1e-4, batch_size: int = 64,
+                     nb_copies: int = 8,
                      parallel: bool = False) -> None:
-    time_now = strftime('%Y-%m-%d-%H:%M:%S', localtime())
+    time_now = strftime('%Y%m%d%H%M%S', localtime())
     torch.manual_seed(random_seed)
     generator = torch.Generator()
     generator.manual_seed(random_seed)
 
-    wandb.init(project="BarlowTwins", name=time_now,
+    wandb.init(project="BarlowTwins", name=f"cls-{time_now}",
                entity="garyeechung-vanderbilt-university",
                job_type="Phase_1-classifier", group="COCO")
 
@@ -48,7 +48,7 @@ def train_classifier(sam_checkpoint: str = SAM_CHECKPOINT,
                                      # nb_negatives=10,
                                      min_area_ratio=0.1,
                                      max_area_ratio=0.7,
-                                     nb_copies=8)
+                                     nb_copies=nb_copies)
     coco_loader_train = DataLoader(coco_dataset, batch_size=batch_size,
                                    shuffle=True,
                                    collate_fn=flatten_collate_fn)
@@ -105,6 +105,8 @@ def train_classifier(sam_checkpoint: str = SAM_CHECKPOINT,
                          "best_val_loss": best_val_loss,
                          "epoch": epoch}
             torch.save(save_dict, f"model_checkpoints/Barlow/classifier_{time_now}.pth")
+
+    wandb.finish()
 
 
 if __name__ == "__main__":
