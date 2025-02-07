@@ -266,3 +266,28 @@ def get_bbox_from_mask(masks: torch.Tensor, extend_ratio=0.1, xyzxyz=False):
             bboxes.append(torch.stack([box_min, box_max]))
     bboxes = torch.stack(bboxes)
     return bboxes
+
+
+def get_pairwise_dices(samples, nb_copies, smooth_factor=1e-3):
+    assert (len(samples) % nb_copies) == 0, "Invalid number of samples"
+    nb_samples = len(samples)
+    batch_size = nb_samples // nb_copies
+
+    dice_lookup = torch.zeros((batch_size, batch_size))
+    for i in range(0, nb_samples, nb_copies):
+        mask_i = samples[i]["masks"]
+        for j in range(i, len(samples), nb_copies):
+            mask_j = samples[j]["masks"]
+            numerator = 2 * (mask_i * mask_j).sum() + smooth_factor
+            denominator = mask_i.sum() + mask_j.sum() + smooth_factor
+            dice = numerator / denominator
+            dice_lookup[i // nb_copies, j // nb_copies] = dice
+
+    dices = []
+    for i in range(nb_samples):
+        for j in range(i, nb_samples):
+            dice = dice_lookup[i // nb_copies, j // nb_copies]
+            dices.append(dice)
+    dices = torch.stack(dices)
+
+    return dices
