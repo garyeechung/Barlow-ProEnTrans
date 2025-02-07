@@ -269,7 +269,7 @@ def get_bbox_from_mask(masks: torch.Tensor, extend_ratio=0.1, xyzxyz=False):
 
 
 def get_pairwise_dices(samples, nb_copies, smooth_factor=1e-3):
-    assert (len(samples) % nb_copies) == 0, "Invalid number of samples"
+    assert (len(samples) % nb_copies) == 0, f"{len(samples)} % {nb_copies} = {len(samples) % nb_copies}"
     nb_samples = len(samples)
     batch_size = nb_samples // nb_copies
 
