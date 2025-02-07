@@ -21,7 +21,7 @@ class CocoMaskAndPoints:
                  nb_positives: Union[int, Tuple[int, int]] = (1, 5),
                  nb_negatives: Union[int, Tuple[int, int]] = (1, 5),
                  to_xy: bool = True, return_side_class: bool = True,
-                 augmentation: bool = True) -> None:
+                 validation: bool = True) -> None:
         assert 0 <= min_area_ratio <= max_area_ratio <= 1, "Invalid ratios"
         self.coco = COCO(coco_json_file)
 
@@ -40,8 +40,8 @@ class CocoMaskAndPoints:
         self.nb_negatives = nb_negatives
         self.to_xy = to_xy
         self.return_side_class = return_side_class
-        self.augmentation = augmentation
-        if self.augmentation:
+        self.validation = validation
+        if not self.validation:
             self.transform = T.Compose([
                 T.Resize((256, 256), interpolation=Image.NEAREST),  # Resize to 256x256
                 T.RandomRotation(30, interpolation=Image.NEAREST),  # Rotate by ±30°
@@ -62,16 +62,19 @@ class CocoMaskAndPoints:
         mask = mask.unsqueeze(0).unsqueeze(0)
         mask = F.interpolate(mask, size=(self.image_size, self.image_size),
                              mode='bilinear', align_corners=False)
-        mask = mask.squeeze(0).squeeze(0)
-        if self.augmentation:
+        if not self.validation:
             mask = self.transform(mask)
+        mask = mask.squeeze(0).squeeze(0)
         mask = mask > 0.5
         mask = mask.float()
 
         samples = []
 
         for _ in range(self.nb_copies):
-            torch.manual_seed(torch.randint(0, 100000, (1,)).item())
+            if self.validation:
+                torch.manual_seed(42)
+            else:
+                torch.manual_seed(torch.randint(0, 100000, (1,)).item())
 
             if isinstance(self.nb_positives, tuple):
                 nb_positives = np.random.randint(self.nb_positives[0], self.nb_positives[1] + 1)
