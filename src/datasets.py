@@ -1,9 +1,11 @@
 from typing import Tuple, Union
 
 import numpy as np
+from PIL import Image
 from pycocotools.coco import COCO
 import torch
 import torch.nn.functional as F
+import torchvision.transforms as T
 
 from src.utils import get_labels_from_coords
 
@@ -18,7 +20,8 @@ class CocoMaskAndPoints:
                  image_size: int = 256, nb_copies: int = 5,
                  nb_positives: Union[int, Tuple[int, int]] = (1, 5),
                  nb_negatives: Union[int, Tuple[int, int]] = (1, 5),
-                 to_xy: bool = True, return_side_class: bool = True) -> None:
+                 to_xy: bool = True, return_side_class: bool = True,
+                 augmentation: bool = True) -> None:
         assert 0 <= min_area_ratio <= max_area_ratio <= 1, "Invalid ratios"
         self.coco = COCO(coco_json_file)
 
@@ -37,6 +40,15 @@ class CocoMaskAndPoints:
         self.nb_negatives = nb_negatives
         self.to_xy = to_xy
         self.return_side_class = return_side_class
+        self.augmentation = augmentation
+        if self.augmentation:
+            self.transform = T.Compose([
+                T.Resize((256, 256), interpolation=Image.NEAREST),  # Resize to 256x256
+                T.RandomRotation(30, interpolation=Image.NEAREST),  # Rotate by ±30°
+                T.RandomHorizontalFlip(p=0.5),  # Flip horizontally with 50% chance
+                T.RandomVerticalFlip(p=0.5),  # Flip vertically with 50% chance
+                T.RandomAffine(degrees=0, translate=(0.2, 0.2), interpolation=Image.NEAREST),  # Shift
+            ])
 
     def __len__(self):
         return len(self.ann_ids)
@@ -51,6 +63,8 @@ class CocoMaskAndPoints:
         mask = F.interpolate(mask, size=(self.image_size, self.image_size),
                              mode='bilinear', align_corners=False)
         mask = mask.squeeze(0).squeeze(0)
+        if self.augmentation:
+            mask = self.transform(mask)
         mask = mask > 0.5
         mask = mask.float()
 
