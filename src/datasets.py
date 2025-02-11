@@ -15,8 +15,8 @@ COCO_JSON_FILE = "data/fiftyone/coco-2017/validation/labels.json"
 
 class CocoMaskAndPoints:
     def __init__(self, coco_json_file: str = COCO_JSON_FILE,
-                 min_area_ratio: float = 0.1,
-                 max_area_ratio: float = 0.7,
+                 min_area_ratio: float = 0.0,
+                 max_area_ratio: float = 1.0,
                  image_size: int = 256, nb_copies: int = 5,
                  nb_positives: Union[int, Tuple[int, int]] = (1, 5),
                  nb_negatives: Union[int, Tuple[int, int]] = (1, 5),
@@ -25,14 +25,17 @@ class CocoMaskAndPoints:
         assert 0 <= min_area_ratio <= max_area_ratio <= 1, "Invalid ratios"
         self.coco = COCO(coco_json_file)
 
-        self.ann_ids = []
-        for ann_id in self.coco.getAnnIds():
-            mask = self.coco.annToMask(self.coco.loadAnns(ann_id)[0])
-            mask_area = mask.sum()
-            total_area = np.prod(mask.shape)
-            area_ratio = mask_area / total_area
-            if min_area_ratio <= area_ratio <= max_area_ratio:
-                self.ann_ids.append(ann_id)
+        if min_area_ratio == 0.0 and max_area_ratio == 1.0:
+            self.ann_ids = self.coco.getAnnIds()
+        else:
+            self.ann_ids = []
+            for ann_id in self.coco.getAnnIds():
+                mask = self.coco.annToMask(self.coco.loadAnns(ann_id)[0])
+                mask_area = mask.sum()
+                total_area = np.prod(mask.shape)
+                area_ratio = mask_area / total_area
+                if min_area_ratio <= area_ratio <= max_area_ratio:
+                    self.ann_ids.append(ann_id)
 
         self.image_size = image_size
         self.nb_copies = nb_copies
@@ -43,7 +46,7 @@ class CocoMaskAndPoints:
         self.validation = validation
         if not self.validation:
             self.transform = T.Compose([
-                T.Resize((256, 256), interpolation=Image.NEAREST),  # Resize to 256x256
+                # T.Resize((256, 256), interpolation=Image.NEAREST),  # Resize to 256x256
                 T.RandomRotation(30, interpolation=Image.NEAREST),  # Rotate by ±30°
                 T.RandomHorizontalFlip(p=0.5),  # Flip horizontally with 50% chance
                 T.RandomVerticalFlip(p=0.5),  # Flip vertically with 50% chance
