@@ -21,7 +21,7 @@ class CocoMaskAndPoints:
                  nb_positives: Union[int, Tuple[int, int]] = (1, 5),
                  nb_negatives: Union[int, Tuple[int, int]] = (1, 5),
                  to_xy: bool = True, return_side_class: bool = True,
-                 validation: bool = True) -> None:
+                 validation: bool = False) -> None:
         assert 0 <= min_area_ratio <= max_area_ratio <= 1, "Invalid ratios"
         self.coco = COCO(coco_json_file)
 
