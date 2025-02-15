@@ -1,4 +1,6 @@
 import logging
+import os
+import random
 from typing import Tuple, Union
 
 import numpy as np
@@ -8,7 +10,7 @@ import torch
 import torch.nn.functional as F
 import torchvision.transforms as T
 
-from src.utils import get_labels_from_coords
+from src.utils import get_labels_from_coords, get_center_by_erosion
 
 
 logging.basicConfig(level=logging.INFO)
@@ -118,6 +120,91 @@ class CocoMaskAndPoints:
             samples.append(sample)
 
         return samples
+
+
+class CocoCenterPointPrompt:
+
+    def __init__(self, data_dir: str = DATA_DIR_TRAIN,
+                 min_mask_num: int = 1,
+                 max_mask_num: int = 1000,
+                 image_size: int = 1024,
+                 to_xy: bool = True,
+                 validation: bool = False,
+                 max_nb_masks: int = 16) -> None:
+
+        self.coco = COCO(os.path.join(data_dir, "labels.json"))
+        self.data_dir = os.path.join(data_dir, "data")
+
+        self.cat_ids = self.coco.getCatIds()
+        self.img_ids = self.coco.getImgIds()
+        self.img_ids = []
+        for idx in self.coco.getImgIds():
+            ann_ids = self.coco.getAnnIds(imgIds=idx, iscrowd=None)
+            anns = self.coco.loadAnns(ann_ids)
+            if min_mask_num <= len(anns) <= max_mask_num:
+                self.img_ids.append(idx)
+
+        self.image_size = image_size
+        self.to_xy = to_xy
+        self.validation = validation
+        self.max_nb_masks = max_nb_masks
+
+    def __len__(self):
+        return len(self.img_ids)
+
+    def __getitem__(self, idx):
+        sample_info = self.coco.loadImgs(self.img_ids[idx])[0]
+        img_path = os.path.join(self.data_dir, sample_info['file_name'])
+        image = Image.open(img_path)
+        image = self.get_image_tensor(image)
+
+        segmentations = self.coco.loadAnns(
+            self.coco.getAnnIds(imgIds=self.img_ids[idx], iscrowd=None)
+        )
+        segmentations = random.sample(segmentations,
+                                      min(len(segmentations), self.max_nb_masks))
+        logger.debug(f"segmentations: {len(segmentations)}")
+
+        masks = [self.get_mask_tensor(self.coco.annToMask(seg))
+                 for seg in segmentations]
+        masks = torch.concat(masks, dim=0) * 255
+        masks = masks > 0.5
+        masks = masks.float()
+        # make masks' edges zero
+        masks[:, 0, :] = 0
+        masks[:, -1, :] = 0
+        masks[:, :, 0] = 0
+        masks[:, :, -1] = 0
+
+        point_coords = get_center_by_erosion(masks, max_iter=30)
+        point_labels = get_labels_from_coords(masks, point_coords)
+
+        sample = {
+            'image': image,
+            'masks': masks,
+            'point_coords': point_coords,
+            'point_labels': point_labels,
+        }
+        return sample
+
+    def get_image_tensor(self, image: Image):
+        image = image.convert('RGB')
+        transform = T.Compose([
+            T.Resize((self.image_size, self.image_size)),
+            T.ToTensor(),
+            T.Normalize(mean=[0.485, 0.456, 0.406],
+                        std=[0.229, 0.224, 0.225])
+        ])
+        return transform(image)
+
+    def get_mask_tensor(self, mask: np.ndarray):
+        mask = Image.fromarray(mask.astype('uint8'), 'L')
+
+        transform = T.Compose([
+            T.Resize((self.image_size, self.image_size), interpolation=Image.NEAREST),
+            T.ToTensor(),
+        ])
+        return transform(mask)
 
 
 def batch_in_batch_out_fn(batch, device='cuda'):
