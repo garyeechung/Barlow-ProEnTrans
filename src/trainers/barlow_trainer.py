@@ -193,6 +193,6 @@ if __name__ == "__main__":
                  coco_file_train=COCO_FILE_TRAIN,
                  coco_file_valid=COCO_FILE_TRAIN,
                  data_split_json=DATA_SPLIT_JSON,
-                 epochs=10, learning_rate=1e-4,
-                 batch_size=16, nb_copies=8,
-                 pseudo_train_valid_ratio=2)
+                 epochs=3, learning_rate=1e-4,
+                 batch_size=8, nb_copies=4,
+                 pseudo_train_valid_ratio=4)

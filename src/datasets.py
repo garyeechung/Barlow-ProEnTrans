@@ -1,3 +1,4 @@
+import logging
 from typing import Tuple, Union
 
 import numpy as np
@@ -10,14 +11,19 @@ import torchvision.transforms as T
 from src.utils import get_labels_from_coords
 
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 COCO_JSON_FILE = "data/fiftyone/coco-2017/validation/labels.json"
+DATA_DIR_TRAIN = "data/fiftyone/coco-2017/validation"
 
 
 class CocoMaskAndPoints:
     def __init__(self, coco_json_file: str = COCO_JSON_FILE,
                  min_area_ratio: float = 0.0,
                  max_area_ratio: float = 1.0,
-                 image_size: int = 256, nb_copies: int = 5,
+                 image_size: int = 1024,
+                 nb_copies: int = 8,
                  nb_positives: Union[int, Tuple[int, int]] = (1, 5),
                  nb_negatives: Union[int, Tuple[int, int]] = (1, 5),
                  to_xy: bool = True, return_side_class: bool = True,
@@ -46,7 +52,6 @@ class CocoMaskAndPoints:
         self.validation = validation
         if not self.validation:
             self.transform = T.Compose([
-                # T.Resize((256, 256), interpolation=Image.NEAREST),  # Resize to 256x256
                 T.RandomRotation(30, interpolation=Image.NEAREST),  # Rotate by ±30°
                 T.RandomHorizontalFlip(p=0.5),  # Flip horizontally with 50% chance
                 T.RandomVerticalFlip(p=0.5),  # Flip vertically with 50% chance
@@ -74,10 +79,7 @@ class CocoMaskAndPoints:
         samples = []
 
         for _ in range(self.nb_copies):
-            if self.validation:
-                torch.manual_seed(42)
-            else:
-                torch.manual_seed(torch.randint(0, 100000, (1,)).item())
+            torch.manual_seed(torch.randint(0, 100000, (1,)).item())
 
             if isinstance(self.nb_positives, tuple):
                 nb_positives = np.random.randint(self.nb_positives[0], self.nb_positives[1] + 1)
