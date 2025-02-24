@@ -105,7 +105,7 @@ def finetune_heuristic_sam(sam_checkpoint: str,
                                  "optimizer": optimizer.state_dict(),
                                  "best_val_loss": best_val_loss,
                                  "epoch": epoch}
-                    torch.save(save_dict, f"model_checkpoints/sam_{time_now}.pth")
+                    torch.save(save_dict, f"model_checkpoints/Barlow/sam_{time_now}.pth")
 
             # training
             optimizer.zero_grad()
@@ -143,7 +143,7 @@ def finetune_heuristic_sam(sam_checkpoint: str,
                              "optimizer": optimizer.state_dict(),
                              "best_val_loss": best_val_loss,
                              "epoch": epoch}
-                torch.save(save_dict, f"model_checkpoints/sam_{time_now}.pth")
+                torch.save(save_dict, f"model_checkpoints/Barlow/sam_{time_now}.pth")
 
     wandb.finish()
 

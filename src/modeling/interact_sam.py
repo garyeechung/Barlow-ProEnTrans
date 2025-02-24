@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class InteractSAM(nn.Module):
 
-    def __init__(self, sam, proentrans):
+    def __init__(self, sam, proentrans=None):
         super(InteractSAM, self).__init__()
         self.sam = sam
         self.proentrans = proentrans
@@ -86,7 +86,8 @@ class InteractSAM(nn.Module):
         )
         sparse_prompt_embeddings = F.pad(sparse_prompt_embeddings,
                                          (0, 0, 0, 1), value=0)
-        sparse_prompt_embeddings = self.proentrans.encoder(sparse_prompt_embeddings)
+        if self.proentrans is not None:
+            sparse_prompt_embeddings = self.proentrans.encoder(sparse_prompt_embeddings)
         sparse_prompt_embeddings = sparse_prompt_embeddings[:, :-1, :]
         logits, _ = self.sam.mask_decoder(image_embeddings=image_embeddings,
                                           image_pe=image_pe,
