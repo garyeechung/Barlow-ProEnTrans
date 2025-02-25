@@ -25,8 +25,8 @@ class ProEnTrans(Module):
                                       value=0)
             sparse_embeddings_all.append(sparse_embeddings)
 
-            padding_mask = torch.ones_like(sparse_embeddings[..., 0])
-            padding_mask[:, len_sparse:-1] = 0
+            padding_mask = torch.zeros_like(sparse_embeddings[..., 0])
+            padding_mask[:, len_sparse:-1] = 1
             padding_masks.append(padding_mask)
         sparse_embeddings_all = torch.cat(sparse_embeddings_all, dim=0)
         padding_masks = torch.cat(padding_masks, dim=0)
