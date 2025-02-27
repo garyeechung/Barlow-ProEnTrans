@@ -23,10 +23,8 @@ def get_center_by_erosion(masks, to_xy: bool = True,
     Returns:
         center (np.Array): in shape [B, N=1, ndim=2, 3]
     """
-    # device = masks.device
     if torch.is_tensor(masks):
         masks = masks.clone().cpu().numpy()
-        # masks = masks.cpu().numpy()
     masks = masks.astype(np.uint8)
 
     assert masks.ndim in [3, 4], f"[B, H, W] or [B, D, H, W], got {masks.shape}"
@@ -36,8 +34,12 @@ def get_center_by_erosion(masks, to_xy: bool = True,
     for mask in masks:
         if mask.sum() == 0:
             logger.warning("Empty mask found!")
-            d, w, h = mask.shape
-            coords.append(np.array([[d // 2, w // 2, h // 2]]))
+            if mask.ndim == 2:
+                w, h = mask.shape
+                coords.append(np.array([[w // 2, h // 2]]))
+            elif mask.ndim == 3:
+                d, w, h = mask.shape
+                coords.append(np.array([[d // 2, w // 2, h // 2]]))
             continue
 
         iter_count = 0

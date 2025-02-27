@@ -161,12 +161,16 @@ class CocoCenterPointPrompt:
         segmentations = self.coco.loadAnns(
             self.coco.getAnnIds(imgIds=self.img_ids[idx], iscrowd=None)
         )
-        segmentations = random.sample(segmentations,
-                                      min(len(segmentations), self.max_nb_masks))
-        logger.debug(f"segmentations: {len(segmentations)}")
-
-        masks = [self.get_mask_tensor(self.coco.annToMask(seg))
-                 for seg in segmentations]
+        if len(segmentations) == 0:
+            pseudo_mask = np.zeros((self.image_size, self.image_size))
+            masks = [self.get_mask_tensor(pseudo_mask)]
+        else:
+            segmentations = random.sample(segmentations,
+                                          min(len(segmentations),
+                                              self.max_nb_masks))
+            logger.debug(f"segmentations: {len(segmentations)}")
+            masks = [self.get_mask_tensor(self.coco.annToMask(seg))
+                     for seg in segmentations]
         masks = torch.concat(masks, dim=0) * 255
         masks = masks > 0.5
         masks = masks.float()
