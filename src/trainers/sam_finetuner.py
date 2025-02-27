@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 SAM_CHECKPOINT = "model_checkpoints/sam_vit_h_4b8939.pth"
-BARLOW_CHECKPOINT = "model_checkpoints/Barlow/barlow_20250213235831.pth"
+BARLOW_CHECKPOINT = "model_checkpoints/Barlow/barlow_20250226101417.pth"
 MODEL_TYPE = "vit_h"
 COCO_FILE_TRAIN = "data/fiftyone/coco-2017/train"
 
@@ -34,7 +34,9 @@ def finetune_heuristic_sam(sam_checkpoint: str,
                            batch_size: int = 128,
                            valid_size: int = 1000,
                            pseudo_train_valid_ratio: int = 4,
-                           max_nb_masks: int = 16) -> None:
+                           max_nb_masks: int = 16,
+                           include_class_embedding=False,
+                           residual_connection=False) -> None:
     time_now = strftime('%Y%m%d%H%M%S', localtime())
     torch.manual_seed(random_seed)
     generator = torch.Generator()
@@ -64,7 +66,9 @@ def finetune_heuristic_sam(sam_checkpoint: str,
     for param in proentrans.parameters():
         param.requires_grad = False
 
-    interactsam = HeuristicSAM(sam, proentrans)
+    interactsam = HeuristicSAM(sam, proentrans,
+                               include_class_embedding=include_class_embedding,
+                               residual_connection=residual_connection)
     params = list(interactsam.parameters())
     optimizer = torch.optim.Adam(params, lr=learning_rate)
     loss_fn = SoftDiceLoss()
@@ -154,6 +158,6 @@ if __name__ == "__main__":
                            model_type=MODEL_TYPE,
                            coco_file_train=COCO_FILE_TRAIN,
                            steps_range=(2, 16),
-                           batch_size=4,
-                           valid_size=64,
-                           max_nb_masks=8)
+                           batch_size=4, valid_size=64, max_nb_masks=8,
+                           include_class_embedding=False,
+                           residual_connection=False)

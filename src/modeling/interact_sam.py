@@ -13,10 +13,14 @@ logger = logging.getLogger(__name__)
 
 class InteractSAM(nn.Module):
 
-    def __init__(self, sam, proentrans=None):
+    def __init__(self, sam, proentrans=None,
+                 include_class_embedding=False,
+                 residual_connection=False):
         super(InteractSAM, self).__init__()
         self.sam = sam
         self.proentrans = proentrans
+        self.include_class_embedding = include_class_embedding
+        self.residual_connection = residual_connection
 
     def forward(self, image, masks, point_coords, point_labels,
                 steps=0, return_prompts=False, return_intermediate=False,
@@ -54,10 +58,8 @@ class InteractSAM(nn.Module):
                 probs = torch.sigmoid(logits)
                 outputs.append(probs)
 
-                new_coords, new_labels = self.get_new_points(probs, masks,
-                                                             image_embedding,
-                                                             point_coords,
-                                                             point_labels)
+                new_coords, new_labels = self.get_new_points(probs, masks, image_embedding,
+                                                             point_coords, point_labels)
                 point_coords = torch.cat([point_coords, new_coords], dim=1)
                 point_labels = torch.cat([point_labels, new_labels], dim=1)
 
@@ -87,8 +89,13 @@ class InteractSAM(nn.Module):
         sparse_prompt_embeddings = F.pad(sparse_prompt_embeddings,
                                          (0, 0, 0, 1), value=0)
         if self.proentrans is not None:
-            sparse_prompt_embeddings = self.proentrans.encoder(sparse_prompt_embeddings)
-        sparse_prompt_embeddings = sparse_prompt_embeddings[:, :-1, :]
+            src_key_preserve_mask = torch.ones_like(sparse_prompt_embeddings, dtype=torch.float32)
+            src_key_preserve_mask[:, -1] = 0
+            sparse_prompt_embeddings = self.proentrans.encoder(sparse_prompt_embeddings,
+                                                               residual_connection=self.residual_connection,
+                                                               src_key_preserve_mask=src_key_preserve_mask)
+        if not self.include_class_embedding:
+            sparse_prompt_embeddings = sparse_prompt_embeddings[:, :-1, :]
         logits, _ = self.sam.mask_decoder(image_embeddings=image_embeddings,
                                           image_pe=image_pe,
                                           sparse_prompt_embeddings=sparse_prompt_embeddings,
@@ -102,9 +109,6 @@ class InteractSAM(nn.Module):
 
 
 class HeuristicSAM(InteractSAM):
-
-    def __init__(self, sam, proentrans):
-        super(HeuristicSAM, self).__init__(sam, proentrans)
 
     def get_new_points(self, probs, masks, image_embedding,
                        point_coords, point_labels):

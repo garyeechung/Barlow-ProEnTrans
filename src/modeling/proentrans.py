@@ -1,13 +1,17 @@
 import torch
 import torch.nn.functional as F
-from torch.nn import Linear, Module, Sequential, Sigmoid, Softmax, TransformerEncoder, TransformerEncoderLayer
+from torch.nn import Linear, Module, Sequential, Sigmoid, Softmax, TransformerEncoderLayer
+
+from .transformer import TransformerEncoderSkipPreserve
 
 
 class ProEnTrans(Module):
-    def __init__(self, sam, d_model=256, nhead=8, num_layers=4):
+    def __init__(self, sam, d_model=256, nhead=8, num_layers=4, skip_preserve=False):
         super().__init__()
+        self.d_model = d_model
+        self.skip_preserve = skip_preserve
         self.layer = TransformerEncoderLayer(d_model=d_model, nhead=nhead, batch_first=True)
-        self.encoder = TransformerEncoder(self.layer, num_layers=num_layers)
+        self.encoder = TransformerEncoderSkipPreserve(self.layer, num_layers=num_layers)
         self.softmax = Softmax(dim=1)
         self.prompt_encoder = sam.prompt_encoder
 
@@ -31,7 +35,13 @@ class ProEnTrans(Module):
         sparse_embeddings_all = torch.cat(sparse_embeddings_all, dim=0)
         padding_masks = torch.cat(padding_masks, dim=0)
 
-        sparse_embeddings_all = self.encoder(sparse_embeddings_all, src_key_padding_mask=padding_masks)
+        src_key_preserve_mask = 1 - padding_masks.unsqueeze(-1).repeat(1, 1, self.d_model)
+        src_key_preserve_mask[:, -1] = 0
+        sparse_embeddings_all = self.encoder(sparse_embeddings_all, src_key_padding_mask=padding_masks,
+                                             residual_connection=self.skip_preserve,
+                                             src_key_preserve_mask=src_key_preserve_mask)
+        # if residual_connection=False, src_key_preserve_mask will be ignored
+
         class_embeddings = sparse_embeddings_all[:, -1, :]
         sparse_embeddings_all = [sparse_embeddings_all[i, :nb_points[i] + 1] for i in range(len(samples))]
 
