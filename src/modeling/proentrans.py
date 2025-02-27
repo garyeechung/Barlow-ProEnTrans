@@ -69,9 +69,12 @@ class SidesMultiLabelClassifier(Module):
 
 
 class BarlowTwinsCosineSimilarity(Module):
-    def __init__(self, sam, d_model=256, nhead=8, num_layers=4, nb_copies=5):
+    def __init__(self, sam, d_model=256, nhead=8, num_layers=4,
+                 nb_copies=5, skip_preserve=False):
         super().__init__()
-        self.proentrans = ProEnTrans(sam, d_model=d_model, nhead=nhead, num_layers=num_layers)
+        self.proentrans = ProEnTrans(sam, d_model=d_model, nhead=nhead,
+                                     num_layers=num_layers,
+                                     skip_preserve=skip_preserve)
         self.nb_copies = nb_copies
         self.softmax = Softmax(dim=1)
 
