@@ -50,9 +50,12 @@ class ProEnTrans(Module):
 
 class SidesMultiLabelClassifier(Module):
     def __init__(self, sam, d_model=256, nhead=8, num_layers=4,
-                 num_mlp_neurons=[256, 128, 64, 32], n_classes=2):
+                 num_mlp_neurons=[256, 128, 64, 32], n_classes=2,
+                 skip_preserve=False):
         super().__init__()
-        self.proentrans = ProEnTrans(sam, d_model=d_model, nhead=nhead, num_layers=num_layers)
+        self.proentrans = ProEnTrans(sam, d_model=d_model, nhead=nhead,
+                                     num_layers=num_layers,
+                                     skip_preserve=skip_preserve)
         self.mlp = Sequential()
         self.mlp.add_module("linear_0", Linear(d_model, num_mlp_neurons[0]))
         self.mlp.add_module("relu_0", torch.nn.ReLU())
