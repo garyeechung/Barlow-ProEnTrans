@@ -53,7 +53,7 @@ class TransformerEncoderSkipPreserve(TransformerEncoder):
         )
 
         if src_key_preserve_mask is None:
-            src_key_preserve_mask = torch.ones_like(src, dtype=torch.float32)
+            src_key_preserve_mask = torch.zeros_like(src, dtype=torch.float32)
 
         output = src
         convert_to_nested = False
