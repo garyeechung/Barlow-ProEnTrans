@@ -36,7 +36,9 @@ def train_barlow(sam_checkpoint: str,
                  parallel: bool = False,
                  nb_train: int = 0,
                  nb_valid: int = 0,
-                 pseudo_train_valid_ratio: int = 4
+                 pseudo_train_valid_ratio: int = 4,
+                 residual_connection: bool = False,
+                 preserve_embedding: bool = False
                  ) -> None:
 
     time_now = strftime('%Y%m%d%H%M%S', localtime())
@@ -44,7 +46,9 @@ def train_barlow(sam_checkpoint: str,
     generator = torch.Generator()
     generator.manual_seed(random_seed)
 
-    wandb.init(project="BarlowTwins", name=f"blt-{time_now}",
+    name = (f"blt{'_res' if residual_connection else ''}"
+            f"{'_preserve' if preserve_embedding else ''}_{time_now}")
+    wandb.init(project="BarlowTwins", name=name,
                entity="garyeechung-vanderbilt-university",
                job_type="BarlowTwins", group="COCO")
 
@@ -52,7 +56,9 @@ def train_barlow(sam_checkpoint: str,
     logger.info(f"Using device: {device}")
 
     sam = sam_model_registry[model_type](sam_checkpoint)
-    barlow_twins = BarlowTwinsCosineSimilarity(sam=sam, nb_copies=nb_copies)
+    barlow_twins = BarlowTwinsCosineSimilarity(sam=sam, nb_copies=nb_copies,
+                                               residual_connection=residual_connection,
+                                               preserve_embedding=preserve_embedding)
     if parallel:
         barlow_twins = DataParallel(barlow_twins)
     barlow_twins = barlow_twins.to(device)
@@ -136,7 +142,7 @@ def train_barlow(sam_checkpoint: str,
                                      "optimizer": optimizer.state_dict(),
                                      "best_val_loss": best_val_loss,
                                      "epoch": epoch}
-                        torch.save(save_dict, f"model_checkpoints/Barlow/barlow_{time_now}.pth")
+                        torch.save(save_dict, f"model_checkpoints/Barlow/{name}.pth")
 
             # Training
             barlow_twins.train()
@@ -181,7 +187,7 @@ def train_barlow(sam_checkpoint: str,
                          "optimizer": optimizer.state_dict(),
                          "best_val_loss": best_val_loss,
                          "epoch": epoch}
-            torch.save(save_dict, f"model_checkpoints/Barlow/barlow_{time_now}.pth")
+            torch.save(save_dict, f"model_checkpoints/Barlow/{name}.pth")
 
     wandb.finish()
 
@@ -195,4 +201,6 @@ if __name__ == "__main__":
                  data_split_json=DATA_SPLIT_JSON,
                  epochs=3, learning_rate=1e-4,
                  batch_size=8, nb_copies=4,
-                 pseudo_train_valid_ratio=4)
+                 pseudo_train_valid_ratio=4,
+                 residual_connection=True,
+                 preserve_embedding=False)

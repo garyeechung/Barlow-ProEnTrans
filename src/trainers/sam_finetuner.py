@@ -19,7 +19,9 @@ logger = logging.getLogger(__name__)
 
 
 SAM_CHECKPOINT = "model_checkpoints/sam_vit_h_4b8939.pth"
-BARLOW_CHECKPOINT = "model_checkpoints/Barlow/barlow_20250226101417.pth"
+# BARLOW_CHECKPOINT = "model_checkpoints/Barlow/barlow_20250226101417.pth"
+# BARLOW_CHECKPOINT = "model_checkpoints/Barlow/barlow_snp_20250227012813.pth"
+BARLOW_CHECKPOINT = "model_checkpoints/Barlow/blt_res_20250305103748.pth"
 MODEL_TYPE = "vit_h"
 COCO_FILE_TRAIN = "data/fiftyone/coco-2017/train"
 
@@ -35,14 +37,21 @@ def finetune_heuristic_sam(sam_checkpoint: str,
                            valid_size: int = 1000,
                            pseudo_train_valid_ratio: int = 4,
                            max_nb_masks: int = 16,
+                           proentrans_flag: bool = False,
                            include_class_embedding=False,
-                           residual_connection=False) -> None:
+                           residual_connection=False,
+                           preserve_embedding=False) -> None:
     time_now = strftime('%Y%m%d%H%M%S', localtime())
     torch.manual_seed(random_seed)
     generator = torch.Generator()
     generator.manual_seed(random_seed)
 
-    wandb.init(project="BarlowTwins", name=f"sam-{time_now}",
+    task_name = (f"sam{'_proentrans' if proentrans_flag else ''}"
+                 f"{'_res' if residual_connection else ''}"
+                 f"{'_cls' if include_class_embedding else ''}_{time_now}")
+    model_checkpoints = f"model_checkpoints/Barlow/{task_name}.pth"
+
+    wandb.init(project="BarlowTwins", name=task_name,
                entity="garyeechung-vanderbilt-university",
                job_type="SAM", group="COCO")
 
@@ -58,17 +67,22 @@ def finetune_heuristic_sam(sam_checkpoint: str,
     for param in sam.mask_decoder.parameters():
         param.requires_grad = True
 
-    blt = BarlowTwinsCosineSimilarity(sam=sam)
-    blt_states = torch.load(barlow_checkpoint)
-    blt.load_state_dict(blt_states["model"], strict=True)
-    proentrans = blt.proentrans
-    proentrans.to(device)
-    for param in proentrans.parameters():
-        param.requires_grad = False
+    if proentrans_flag:
+        blt = BarlowTwinsCosineSimilarity(sam=sam)
+        blt_states = torch.load(barlow_checkpoint)
+        blt.load_state_dict(blt_states["model"], strict=True)
+        proentrans = blt.proentrans
+        proentrans.to(device)
+        for param in proentrans.parameters():
+            param.requires_grad = False
+    else:
+        proentrans = None
 
     interactsam = HeuristicSAM(sam, proentrans,
                                include_class_embedding=include_class_embedding,
-                               residual_connection=residual_connection)
+                               residual_connection=residual_connection,
+                               preserve_embedding=preserve_embedding)
+    interactsam.to(device)
     params = list(interactsam.parameters())
     optimizer = torch.optim.Adam(params, lr=learning_rate)
     loss_fn = SoftDiceLoss()
@@ -109,7 +123,7 @@ def finetune_heuristic_sam(sam_checkpoint: str,
                                  "optimizer": optimizer.state_dict(),
                                  "best_val_loss": best_val_loss,
                                  "epoch": epoch}
-                    torch.save(save_dict, f"model_checkpoints/Barlow/sam_{time_now}.pth")
+                    torch.save(save_dict, model_checkpoints)
 
             # training
             optimizer.zero_grad()
@@ -147,7 +161,7 @@ def finetune_heuristic_sam(sam_checkpoint: str,
                              "optimizer": optimizer.state_dict(),
                              "best_val_loss": best_val_loss,
                              "epoch": epoch}
-                torch.save(save_dict, f"model_checkpoints/Barlow/sam_{time_now}.pth")
+                torch.save(save_dict, model_checkpoints)
 
     wandb.finish()
 
@@ -159,5 +173,7 @@ if __name__ == "__main__":
                            coco_file_train=COCO_FILE_TRAIN,
                            steps_range=(2, 16),
                            batch_size=4, valid_size=64, max_nb_masks=8,
-                           include_class_embedding=False,
-                           residual_connection=False)
+                           proentrans_flag=True,
+                           include_class_embedding=True,
+                           residual_connection=True,
+                           preserve_embedding=False)

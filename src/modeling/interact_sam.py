@@ -15,12 +15,14 @@ class InteractSAM(nn.Module):
 
     def __init__(self, sam, proentrans=None,
                  include_class_embedding=False,
-                 residual_connection=False):
+                 residual_connection=False,
+                 preserve_embedding=False):
         super(InteractSAM, self).__init__()
         self.sam = sam
         self.proentrans = proentrans
         self.include_class_embedding = include_class_embedding
         self.residual_connection = residual_connection
+        self.preserve_embedding = preserve_embedding
 
     def forward(self, image, masks, point_coords, point_labels,
                 steps=0, return_prompts=False, return_intermediate=False,
@@ -89,8 +91,11 @@ class InteractSAM(nn.Module):
         sparse_prompt_embeddings = F.pad(sparse_prompt_embeddings,
                                          (0, 0, 0, 1), value=0)
         if self.proentrans is not None:
-            src_key_preserve_mask = torch.ones_like(sparse_prompt_embeddings, dtype=torch.float32)
-            src_key_preserve_mask[:, -1] = 0
+            if self.preserve_embedding:
+                src_key_preserve_mask = torch.ones_like(sparse_prompt_embeddings, dtype=torch.float32)
+                src_key_preserve_mask[:, -1] = 0
+            else:
+                src_key_preserve_mask = None
             sparse_prompt_embeddings = self.proentrans.encoder(sparse_prompt_embeddings,
                                                                residual_connection=self.residual_connection,
                                                                src_key_preserve_mask=src_key_preserve_mask)
