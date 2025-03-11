@@ -1,6 +1,9 @@
 from .coco import CocoCenterPointPrompt, CocoMaskAndPoints
+from .flare import FLAREDataset2D, FLAREDatasetCache2D
 
-__all__ = ['CocoCenterPointPrompt', 'CocoMaskAndPoints']
+
+__all__ = ['CocoCenterPointPrompt', 'CocoMaskAndPoints',
+           'FLAREDataset2D', 'FLAREDatasetCache2D']
 
 
 def batch_in_batch_out_fn(batch, device='cuda'):
