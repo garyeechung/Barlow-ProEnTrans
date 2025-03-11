@@ -293,3 +293,33 @@ def get_pairwise_dices(samples, nb_copies, smooth_factor=1e-3):
     dices = torch.stack(dices)
 
     return dices
+
+
+def get_surface_from_point_prompts(point_coords: torch.Tensor,
+                                   point_labels: torch.Tensor,
+                                   image_size=(1024, 1024),
+                                   max_sigma=200, **kwargs):
+    point_coords = point_coords.squeeze(0).numpy()
+    point_labels = point_labels.squeeze(0).numpy()
+
+    x = np.linspace(0, image_size[0], image_size[0])
+    y = np.linspace(0, image_size[1], image_size[1])
+    x, y = np.meshgrid(x, y)
+    closet_point_dist = []
+    for i in range(len(point_coords)):
+        coord = point_coords[i:i + 1]
+        coord = np.repeat(coord, len(point_coords), axis=0)
+        dist = np.sort(np.sqrt(((coord - point_coords)**2).sum(axis=1)))[1]
+        closet_point_dist.append(dist)
+    surface = np.zeros(image_size)
+
+    for coord, label, dist in zip(point_coords, point_labels, closet_point_dist):
+        x0, y0 = coord
+        sigma = min(dist, max_sigma)
+        sign = 1 if label == 1 else -1
+        surface = surface + sign * gaussian_2d(x, y, x0, y0, sigma)
+    return surface
+
+
+def gaussian_2d(x, y, x0, y0, sigma):
+    return np.exp(-((x - x0)**2 + (y - y0)**2) / (2 * sigma**2))
