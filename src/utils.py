@@ -298,28 +298,44 @@ def get_pairwise_dices(samples, nb_copies, smooth_factor=1e-3):
 def get_surface_from_point_prompts(point_coords: torch.Tensor,
                                    point_labels: torch.Tensor,
                                    image_size=(1024, 1024),
-                                   max_sigma=200, **kwargs):
-    point_coords = point_coords.squeeze(0).numpy()
-    point_labels = point_labels.squeeze(0).numpy()
+                                   min_sigma=50, max_sigma=200,
+                                   device=None, **kwargs):
+    point_coords = point_coords.squeeze(0).to(device)
+    point_labels = point_labels.squeeze(0).to(device)
 
-    x = np.linspace(0, image_size[0], image_size[0])
-    y = np.linspace(0, image_size[1], image_size[1])
-    x, y = np.meshgrid(x, y)
-    closet_point_dist = []
-    for i in range(len(point_coords)):
-        coord = point_coords[i:i + 1]
-        coord = np.repeat(coord, len(point_coords), axis=0)
-        dist = np.sort(np.sqrt(((coord - point_coords)**2).sum(axis=1)))[1]
-        closet_point_dist.append(dist)
-    surface = np.zeros(image_size)
+    x = torch.linspace(0, image_size[0] - 1, image_size[0], device=device)
+    y = torch.linspace(0, image_size[1] - 1, image_size[1], device=device)
+    x, y = torch.meshgrid(x, y, indexing="xy")
 
-    for coord, label, dist in zip(point_coords, point_labels, closet_point_dist):
-        x0, y0 = coord
-        sigma = min(dist, max_sigma)
+    point_dists = torch.cdist(point_coords, point_coords, p=2)  # Compute Euclidean distances
+    point_dists.fill_diagonal_(float('inf'))  # Ignore self-distances
+    closest_point_dist, _ = torch.min(point_dists, dim=1)  # Get the closest non-self point distance
+    sigmas = torch.clamp(closest_point_dist, min=min_sigma, max=max_sigma)  # Clip sigma values
+
+    surface = torch.zeros(image_size, dtype=torch.float32, device=device)
+    for (x0, y0), label, sigma in zip(point_coords, point_labels, sigmas):
         sign = 1 if label == 1 else -1
-        surface = surface + sign * gaussian_2d(x, y, x0, y0, sigma)
+        surface += sign * gaussian_2d(x, y, x0, y0, sigma)
+
     return surface
 
 
 def gaussian_2d(x, y, x0, y0, sigma):
-    return np.exp(-((x - x0)**2 + (y - y0)**2) / (2 * sigma**2))
+    return torch.exp(-((x - x0)**2 + (y - y0)**2) / (2 * sigma**2))
+
+
+def get_pairwise_surf_cossim(samples, device=None, min_sigma=50, max_sigma=200, **kwargs):
+    nb_samples = len(samples)
+
+    cos_sims = []
+    for i in range(0, nb_samples):
+        surf_i = get_surface_from_point_prompts(**samples[i], device=device)
+        for j in range(i, nb_samples):
+            surf_j = get_surface_from_point_prompts(**samples[j], device=device)
+            numerator = (surf_i * surf_j).sum()
+            denominator = torch.norm(surf_i) * torch.norm(surf_j)
+            cos_sim = numerator / denominator
+            cos_sims.append(cos_sim)
+    cos_sims = torch.stack(cos_sims)
+
+    return cos_sims
