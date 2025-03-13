@@ -299,9 +299,10 @@ def get_surface_from_point_prompts(point_coords: torch.Tensor,
                                    point_labels: torch.Tensor,
                                    image_size=(1024, 1024),
                                    min_sigma=50, max_sigma=200,
-                                   device=None, **kwargs):
-    point_coords = point_coords.squeeze(0).to(device)
-    point_labels = point_labels.squeeze(0).to(device)
+                                   **kwargs):
+    point_coords = point_coords.squeeze(0)
+    point_labels = point_labels.squeeze(0)
+    device = point_coords.device
 
     x = torch.linspace(0, image_size[0] - 1, image_size[0], device=device)
     y = torch.linspace(0, image_size[1] - 1, image_size[1], device=device)
@@ -324,8 +325,9 @@ def gaussian_2d(x, y, x0, y0, sigma):
     return torch.exp(-((x - x0)**2 + (y - y0)**2) / (2 * sigma**2))
 
 
-def get_pairwise_surf_cossim(samples, device=None, min_sigma=50, max_sigma=200, **kwargs):
+def get_pairwise_surf_cossim(samples, min_sigma=50, max_sigma=200, **kwargs):
     nb_samples = len(samples)
+    device = samples[0]["point_coords"].device
 
     cos_sims = []
     for i in range(0, nb_samples):
