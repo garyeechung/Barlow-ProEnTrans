@@ -79,7 +79,8 @@ class SidesMultiLabelClassifier(Module):
 
 class BarlowTwinsCosineSimilarity(Module):
     def __init__(self, sam, d_model=256, nhead=8, num_layers=4, nb_copies=5,
-                 residual_connection=False, preserve_embedding=False):
+                 residual_connection=False, preserve_embedding=False,
+                 target_matric="dice"):
         super().__init__()
         self.proentrans = ProEnTrans(sam, d_model=d_model, nhead=nhead,
                                      num_layers=num_layers,
@@ -87,6 +88,8 @@ class BarlowTwinsCosineSimilarity(Module):
                                      preserve_embedding=preserve_embedding)
         self.nb_copies = nb_copies
         self.softmax = Softmax(dim=1)
+        assert target_matric in ["dice", "surf"]
+        self.target_matric = target_matric
 
     def forward(self, samples):
         class_embeddings, sparse_embeddings_all = self.proentrans(samples)
@@ -94,11 +97,12 @@ class BarlowTwinsCosineSimilarity(Module):
         return cos_sims
 
     def compute_cos_sims(self, class_embeddings):
-        cls_emb_softmax = self.softmax(class_embeddings)
+        if self.target_matric == "dice":
+            class_embeddings = self.softmax(class_embeddings)
         cos_sims = []
-        for i in range(cls_emb_softmax.shape[0]):
-            for j in range(i, cls_emb_softmax.shape[0]):
-                cos_sim = F.cosine_similarity(cls_emb_softmax[i], cls_emb_softmax[j], dim=0)
+        for i in range(class_embeddings.shape[0]):
+            for j in range(i, class_embeddings.shape[0]):
+                cos_sim = F.cosine_similarity(class_embeddings[i], class_embeddings[j], dim=0)
                 cos_sims.append(cos_sim)
         cos_sims = torch.stack(cos_sims)
 

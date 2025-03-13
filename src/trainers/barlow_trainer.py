@@ -12,7 +12,7 @@ import wandb
 
 from ..datasets import CocoMaskAndPoints, flatten_collate_fn
 from ..modeling.proentrans import BarlowTwinsCosineSimilarity
-from ..utils import get_pairwise_dices
+from ..utils import get_pairwise_dices, get_pairwise_surf_cossim
 
 SAM_CHECKPOINT = "model_checkpoints/sam_vit_h_4b8939.pth"
 MODEL_TYPE = "vit_h"
@@ -38,15 +38,21 @@ def train_barlow(sam_checkpoint: str,
                  nb_valid: int = 0,
                  pseudo_train_valid_ratio: int = 4,
                  residual_connection: bool = False,
-                 preserve_embedding: bool = False
+                 preserve_embedding: bool = False,
+                 target_matric: str = "dice"
                  ) -> None:
+    assert target_matric in ["dice", "surf"], "Invalid target metric"
+    if target_matric == "dice":
+        get_pairwise_metric = get_pairwise_dices
+    else:
+        get_pairwise_metric = get_pairwise_surf_cossim
 
     time_now = strftime('%Y%m%d%H%M%S', localtime())
     torch.manual_seed(random_seed)
     generator = torch.Generator()
     generator.manual_seed(random_seed)
 
-    name = (f"blt{'_res' if residual_connection else ''}"
+    name = (f"blt_{target_matric}{'_res' if residual_connection else ''}"
             f"{'_preserve' if preserve_embedding else ''}_{time_now}")
     wandb.init(project="BarlowTwins", name=name,
                entity="garyeechung-vanderbilt-university",
@@ -58,7 +64,8 @@ def train_barlow(sam_checkpoint: str,
     sam = sam_model_registry[model_type](sam_checkpoint)
     barlow_twins = BarlowTwinsCosineSimilarity(sam=sam, nb_copies=nb_copies,
                                                residual_connection=residual_connection,
-                                               preserve_embedding=preserve_embedding)
+                                               preserve_embedding=preserve_embedding,
+                                               target_matric=target_matric)
     if parallel:
         barlow_twins = DataParallel(barlow_twins)
     barlow_twins = barlow_twins.to(device)
@@ -125,10 +132,10 @@ def train_barlow(sam_checkpoint: str,
                             for key, value in sample.items():
                                 if isinstance(value, torch.Tensor):
                                     sample[key] = value.to(device)
-                        dices = get_pairwise_dices(samples_val, nb_copies)
-                        dices = dices.to(device)
+                        metric = get_pairwise_metric(samples_val, nb_copies)
+                        metric = metric.to(device)
                         cos_sims = barlow_twins(samples_val)
-                        loss += mse(dices, cos_sims).item()
+                        loss += mse(metric, cos_sims).item()
                     loss /= i
                     wandb.log({"val_loss": loss})
                     print(f"\nEpoch {epoch:03d}: validation loss: {loss}")
@@ -151,10 +158,10 @@ def train_barlow(sam_checkpoint: str,
                     if isinstance(value, torch.Tensor):
                         sample[key] = value.to(device)
             optimizer.zero_grad()
-            dices = get_pairwise_dices(samples_trn, nb_copies)
-            dices = dices.to(device)
+            metric = get_pairwise_metric(samples_trn, nb_copies)
+            metric = metric.to(device)
             cos_sims = barlow_twins(samples_trn)
-            loss = mse(dices, cos_sims)
+            loss = mse(metric, cos_sims)
             loss.backward()
             optimizer.step()
             wandb.log({"train_loss": loss.item()})
@@ -169,10 +176,10 @@ def train_barlow(sam_checkpoint: str,
                     for key, value in sample.items():
                         if isinstance(value, torch.Tensor):
                             sample[key] = value.to(device)
-                dices = get_pairwise_dices(samples_val, nb_copies)
-                dices = dices.to(device)
+                metric = get_pairwise_metric(samples_val, nb_copies)
+                metric = metric.to(device)
                 cos_sims = barlow_twins(samples_val)
-                loss += mse(dices, cos_sims).item()
+                loss += mse(metric, cos_sims).item()
             loss /= i
             wandb.log({"val_loss": loss})
             print(f"\nEpoch {epoch:03d}: validation loss: {loss}")
@@ -203,4 +210,5 @@ if __name__ == "__main__":
                  batch_size=8, nb_copies=4,
                  pseudo_train_valid_ratio=4,
                  residual_connection=True,
-                 preserve_embedding=False)
+                 preserve_embedding=True,
+                 target_matric="surf")

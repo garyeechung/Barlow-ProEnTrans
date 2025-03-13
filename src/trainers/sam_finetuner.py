@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 SAM_CHECKPOINT = "model_checkpoints/sam_vit_h_4b8939.pth"
 # BARLOW_CHECKPOINT = "model_checkpoints/Barlow/barlow_20250226101417.pth"
 # BARLOW_CHECKPOINT = "model_checkpoints/Barlow/barlow_snp_20250227012813.pth"
-BARLOW_CHECKPOINT = "model_checkpoints/Barlow/blt_res_20250305103748.pth"
+# BARLOW_CHECKPOINT = "model_checkpoints/Barlow/blt_res_20250305103748.pth"
+BARLOW_CHECKPOINT = "model_checkpoints/Barlow/blt_surf_res_preserve_20250312014051.pth"
 MODEL_TYPE = "vit_h"
 COCO_FILE_TRAIN = "data/fiftyone/coco-2017/train"
 
@@ -40,13 +41,16 @@ def finetune_heuristic_sam(sam_checkpoint: str,
                            proentrans_flag: bool = False,
                            include_class_embedding=False,
                            residual_connection=False,
-                           preserve_embedding=False) -> None:
+                           preserve_embedding=False,
+                           barlow_pretrain="dice") -> None:
+    assert barlow_pretrain in ["dice", "surf"], "Invalid target metric"
     time_now = strftime('%Y%m%d%H%M%S', localtime())
     torch.manual_seed(random_seed)
     generator = torch.Generator()
     generator.manual_seed(random_seed)
 
-    task_name = (f"sam{'_proentrans' if proentrans_flag else ''}"
+    task_name = (f"sam{'_blt' if proentrans_flag else ''}"
+                 f"_{barlow_pretrain if proentrans_flag else ''}"
                  f"{'_res' if residual_connection else ''}"
                  f"{'_cls' if include_class_embedding else ''}_{time_now}")
     model_checkpoints = f"model_checkpoints/Barlow/{task_name}.pth"
@@ -167,6 +171,7 @@ def finetune_heuristic_sam(sam_checkpoint: str,
 
 
 if __name__ == "__main__":
+    barlow_checkpoint = "model_checkpoints/Barlow/blt_surf_res_preserve_20250312014051.pth"
     finetune_heuristic_sam(sam_checkpoint=SAM_CHECKPOINT,
                            barlow_checkpoint=BARLOW_CHECKPOINT,
                            model_type=MODEL_TYPE,
@@ -176,4 +181,5 @@ if __name__ == "__main__":
                            proentrans_flag=True,
                            include_class_embedding=True,
                            residual_connection=True,
-                           preserve_embedding=False)
+                           preserve_embedding=True,
+                           barlow_pretrain="surf")
