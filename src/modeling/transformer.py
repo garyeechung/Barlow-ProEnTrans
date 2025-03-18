@@ -148,12 +148,10 @@ class TransformerEncoderSkipPreserve(TransformerEncoder):
                 is_causal=is_causal,
                 src_key_padding_mask=src_key_padding_mask_for_layers,
             )
-            # add normalization and skip connection
-            if residual_connection:
-                output = mod.norm1(output)
-                output = (output * (1 - src_key_preserve_mask) +
-                          prev_output * src_key_preserve_mask)
-            prev_output = output
+        if residual_connection:
+            output = mod.norm1(output)
+            output = (output * (1 - src_key_preserve_mask) +
+                      prev_output * src_key_preserve_mask)
 
         if convert_to_nested:
             output = output.to_padded_tensor(0.0, src.size())
