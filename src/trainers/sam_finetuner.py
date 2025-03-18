@@ -52,7 +52,9 @@ def finetune_heuristic_sam(sam_checkpoint: str,
     task_name = (f"sam{'_blt' if proentrans_flag else ''}"
                  f"_{barlow_pretrain if proentrans_flag else ''}"
                  f"{'_res' if residual_connection else ''}"
-                 f"{'_cls' if include_class_embedding else ''}_{time_now}")
+                 f"{'_cls' if include_class_embedding else ''}"
+                 f"{'_preserve' if preserve_embedding else ''}"
+                 f"_{time_now}")
     model_checkpoints = f"model_checkpoints/Barlow/{task_name}.pth"
 
     wandb.init(project="BarlowTwins", name=task_name,

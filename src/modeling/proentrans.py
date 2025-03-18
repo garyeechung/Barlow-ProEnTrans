@@ -14,6 +14,8 @@ class ProEnTrans(Module):
         self.encoder = TransformerEncoderSkipPreserve(self.layer, num_layers=num_layers)
         self.softmax = Softmax(dim=1)
         self.prompt_encoder = sam.prompt_encoder
+        for param in self.prompt_encoder.parameters():
+            param.requires_grad = False
         self.residual_connection = residual_connection
         self.preserve_embedding = preserve_embedding
 
